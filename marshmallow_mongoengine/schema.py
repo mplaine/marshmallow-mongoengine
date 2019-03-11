@@ -5,6 +5,7 @@ from mongoengine.base import BaseDocument
 import marshmallow as ma
 from marshmallow.compat import with_metaclass
 from marshmallow_mongoengine.convert import ModelConverter
+from marshmallow import ValidationError
 
 
 DEFAULT_SKIP_VALUES = (None, [], {})
@@ -147,7 +148,12 @@ class ModelSchema(with_metaclass(SchemaMeta, ma.Schema)):
         required_fields = [k for k, f in self.fields.items() if f.required]
         for field in required_fields:
             self.fields[field].required = False
-        loaded_data, errors = self._do_load(data, postprocess=False)
+        errors = {}
+        try:
+            loaded_data = self._do_load(data, postprocess=False)
+        except ValidationError as err:
+            errors = err.messages
+            valid_data = err.valid_data
         for field in required_fields:
             self.fields[field].required = True
         if not errors:
@@ -157,4 +163,4 @@ class ModelSchema(with_metaclass(SchemaMeta, ma.Schema)):
                 # added during unserialization
                 if k in data:
                     setattr(obj, k, v)
-        return ma.UnmarshalResult(data=obj, errors=errors)
+        return obj
